@@ -7,6 +7,7 @@ import java.util.Objects;
 /**
  * Value Object reprezentujący kwotę i walutę.
  * Prosty wariant: trzymamy amount w skali 2 i walutę jako String.
+ * Użyto specyficznego typu klasy record, dobrego gdy w obiekcie chcemy przechować wartość nie zachowanie etc.
  */
 public record Money(BigDecimal amount, String currency) {
 
