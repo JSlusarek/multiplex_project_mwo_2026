@@ -1,0 +1,243 @@
+@startuml
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+' =========================================================
+' pl.multiplex.shared  (value objects / wspólne typy)
+' =========================================================
+package "pl.multiplex.shared" {
+
+class SeatId <<value_object>> {
+  +row : String
+  +number : int
+}
+
+class Money <<value_object>> {
+  +amount : BigDecimal
+  +currency : String
+}
+
+enum SeatZone {
+  STANDARD
+  VIP
+  PROMO
+  SUPER_PROMO
+}
+
+}
+
+' =========================================================
+' pl.multiplex.screening  (repertuar / seanse)
+' =========================================================
+package "pl.multiplex.screening" {
+
+enum SeatStatus {
+  FREE
+  RESERVED
+  SOLD
+}
+
+enum ScreeningFormat {
+  TWO_D
+  THREE_D
+}
+
+enum ScreeningClass {
+  STANDARD
+  VIP
+}
+
+enum LanguageOption {
+  DUBBING_PL
+  PL
+  EN_PL_SUBS
+}
+
+enum AgeRating {
+  FAMILY
+  OVER_12
+  OVER_16
+  OVER_18
+}
+
+class Movie {
+  -title : String
+  -director : String
+  -durationMin : int
+  -language : LanguageOption
+  -themes : List<String>
+  -ageRating : AgeRating
+}
+
+class Screening {
+  -movie : Movie
+  -hall : Hall
+  -start : LocalDateTime
+  -format : ScreeningFormat
+  -clazz : ScreeningClass
+  -seatStates : Map<SeatId, SeatStatus>
+  +end : LocalDateTime <<derived>>
+  +getFreeSeats() : Set<SeatId>
+  +reserveSeats(request: SeatReservationRequest) : Reservation
+  +cancelReservation(reservationId: String) : void
+  +buyTickets(request: TicketPurchaseRequest) : TicketOrder
+}
+
+}
+
+' =========================================================
+' pl.multiplex.network  (struktura sieci kin)
+' =========================================================
+package "pl.multiplex.network" {
+
+class MultiplexNetwork {
+  -cinemas : List<Cinema>
+  +addCinema(cinema: Cinema) : void
+  +removeCinema(cinema: Cinema) : void
+  +findCinema(name: String) : Cinema
+  +getCinemas() : List<Cinema>
+}
+
+class Cinema {
+  -name : String
+  -address : String
+  -halls : List<Hall>
+  -screenings : List<Screening>
+  +addHall(hall: Hall) : void
+  +schedule(screening: Screening) : void
+  +printProgramme(from: LocalDate, to: LocalDate) : void
+  +getProgrammeNextWeek(today: LocalDate) : List<Screening>
+  +findMovie(query: String) : List<Movie>
+}
+
+class Hall {
+  -name : String
+  -seats : Set<Seat>
+  +getSeat(id: SeatId) : Seat
+  +getSeats() : Set<Seat>
+}
+
+class Seat {
+  -id : SeatId
+  -zone : SeatZone
+  +getId() : SeatId
+  +getZone() : SeatZone
+}
+
+}
+
+' =========================================================
+' pl.multiplex.sales  (sprzedaż / rezerwacje)
+' =========================================================
+package "pl.multiplex.sales" {
+
+interface Buyer {
+  +getDisplayName() : String
+}
+
+class Customer {
+  -customerId : String
+  -firstName : String
+  -lastName : String
+  -tickets : List<Ticket>
+  +getTickets() : List<Ticket>
+  +getDisplayName() : String
+}
+
+class Guest {
+  -alias : String
+  +getDisplayName() : String
+}
+
+class Reservation {
+  -reservationId : String
+  -screening : Screening
+  -buyer : Buyer
+  -seatIds : Set<SeatId>
+  -createdAt : LocalDateTime
+  +getSeatIds() : Set<SeatId>
+}
+
+class Ticket {
+  -ticketId : String
+  -screening : Screening
+  -seatId : SeatId
+  -buyer : Buyer
+  -price : Money
+}
+
+class TicketOrder {
+  -orderId : String
+  -buyer : Buyer
+  -tickets : List<Ticket>
+  -createdAt : LocalDateTime
+  +getTickets() : List<Ticket>
+}
+
+class SeatReservationRequest {
+  +buyer : Buyer
+  +seatIds : Set<SeatId>
+}
+
+class TicketPurchaseRequest {
+  +buyer : Buyer
+  +seatIds : Set<SeatId>
+}
+
+}
+
+' =========================================================
+' pl.multiplex.pricing  (cennik / strategia)
+' =========================================================
+package "pl.multiplex.pricing" {
+
+interface PricingPolicy {
+  +priceFor(screening: Screening, seat: Seat) : Money
+}
+
+class DefaultPricingPolicy
+
+class TicketFactory {
+  -pricing : PricingPolicy
+  +createTicket(buyer: Buyer, screening: Screening, seatId: SeatId) : Ticket
+}
+
+}
+
+' =========================
+' RELATIONSHIPS
+' =========================
+
+MultiplexNetwork "1" o-- "2..*" Cinema : cinemas
+
+Cinema "1" *-- "1..*" Hall : halls
+Hall "1" *-- "1..*" Seat : seats
+
+Cinema "1" o-- "0..*" Screening : screenings
+Screening --> Movie
+Screening --> Hall
+
+Buyer <|.. Customer
+Buyer <|.. Guest
+
+Reservation --> Screening
+Reservation --> Buyer
+Reservation --> SeatId
+
+Ticket --> Screening
+Ticket --> Buyer
+Ticket --> SeatId
+
+TicketOrder *-- Ticket
+TicketOrder --> Buyer
+
+Customer o-- Ticket
+
+TicketFactory ..> PricingPolicy
+TicketFactory ..> Ticket
+TicketFactory ..> Screening
+TicketFactory ..> Buyer
+
+PricingPolicy <|.. DefaultPricingPolicy
+@enduml
